@@ -14,7 +14,7 @@ private:
 	{
 		static const keyType invalidNode = invalidNodeValue;
 
-		Node(keyType id = -1) : parent(invalidNode), id(id) {}
+		Node(keyType id = invalidNode) : parent(invalidNode), id(id) {}
 
 		keyType parent;
 		keyType id;
