@@ -6,7 +6,7 @@
 #include <vector>
 
 template<typename keyType = int, keyType invalidNodeValue = -1>
-class BreadthFirstSearch
+class BreadthFirstSearchBiDirectional
 {
 private:
 
@@ -14,8 +14,9 @@ private:
 	{
 		static const keyType invalidNode = invalidNodeValue;
 
-		Node(keyType id = invalidNode) : parent(invalidNode), id(id) {}
+		Node(keyType id = invalidNode) : start(invalidNode), parent(invalidNode), id(id) {}
 
+		keyType start;
 		keyType parent;
 		keyType id;
 	};
@@ -29,9 +30,9 @@ private:
 
 
 public:
-	static std::stack<keyType> FindPath(keyType start, keyType end, GetChildrenFn getChildren)
+	static std::deque<keyType> FindPath(keyType start, keyType end, GetChildrenFn getChildren)
 	{
-		BreadthFirstSearch bfs;
+		BreadthFirstSearchBiDirectional bfs;
 
 		return bfs.FindPathImpl(start, end, getChildren);
 	}
@@ -39,70 +40,112 @@ public:
 private:
 	// Does a breadth first search
 	// Returns the path from start to end on a stack where start is at the top of the stack
-	std::stack<keyType> FindPathImpl(keyType start, keyType end, GetChildrenFn getChildren)
+	std::deque<keyType> FindPathImpl(keyType start, keyType end, GetChildrenFn getChildren)
 	{
-		std::stack<keyType> retv;
+		std::deque<keyType> retv;
 
 		// Check for the trivial case that your path consists merely of starting
 		if (start == end)
 		{
-			retv.push(start);
+			retv.push_back(start);
 			return retv;
 		}
 
-		nodeQueue queue;
-		Node& startNode = GetNode(start);
-		startNode.parent = start;
-		queue.push_back(startNode);
+		nodeQueue startQueue;
+		InitStartNode(startQueue, start);
 
-		while (queue.size() > 0)
+		nodeQueue endQueue;
+		InitStartNode(endQueue, end);
+
+		while (startQueue.size() > 0 && endQueue.size() > 0)
 		{
-			auto node = queue.front();
-			queue.pop_front();
-			auto children = getChildren(node.id);
+			retv = VisitNode(getChildren, start, end, startQueue, true);
 
-			for each (auto child in children)
+			if (retv.size() > 0)
 			{
-				Node& childNode = GetNode(child);
+				return retv;
+			}
 
-				// If the node has already been visited then the parent node will have been set
-				// if some degenerate has decided to tell you that a node is a child of itself
-				// then don't add that node either. No shortest path will ever pass through the
-				// same node twice.
-				if (childNode.parent != Node::invalidNode || childNode.id == node.id)
-				{
-					continue;
-				}
-
-				childNode.parent = node.id;
-
-				if (child == end)
-				{
-					return GetPath(childNode, start);
-				}
-
-				queue.push_back(childNode);
+			retv = VisitNode(getChildren, end, start, endQueue, false);
+			if (retv.size() > 0)
+			{
+				return retv;
 			}
 		}
 
 		return retv;
 	}
 
-	const std::stack<keyType> GetPath(Node childNode, keyType start)
+	std::deque<keyType> VisitNode(GetChildrenFn &getChildren, keyType const &start, keyType const &end, std::deque<Node>& queue, bool isStart)
 	{
-		std::stack<keyType> retv;
+		std::deque<keyType> retv;
 
+		auto node = queue.front();
+		queue.pop_front();
+
+		for each (auto child in getChildren(node.id))
+		{
+			Node& childNode = GetNode(child);
+
+			// If the nodes have met, we are done
+			if (childNode.start == end)
+			{
+				GetPath(node, start, retv, isStart);
+				GetPath(childNode, end, retv, !isStart);
+				return retv;
+			}
+
+			// If the node has already been visited then the parent node will have been set
+			// if some degenerate has decided to tell you that a node is a child of itself
+			// then don't add that node either. No shortest path will ever pass through the
+			// same node twice.
+			if (childNode.parent != Node::invalidNode || childNode.id == node.id)
+			{
+				continue;
+			}
+
+			childNode.parent = node.id;
+			childNode.start = node.start;
+
+			queue.push_back(childNode);
+		}
+
+		return retv;
+	}
+
+	void InitStartNode(std::deque<Node> &queue, keyType &start)
+	{
+		Node& startNode = GetNode(start);
+		startNode.parent = start;
+		startNode.start = start;
+		queue.push_back(startNode);
+	}
+
+	const void GetPath(Node childNode, keyType start, std::deque<keyType>& retv, bool pushFront)
+	{
 		// The start node is the parent of itself
 		while (childNode.parent != childNode.id)
 		{
-			retv.push(childNode.id);
+			assert(childNode.parent != Node::invalidNode);
+
+			PushNode(retv, childNode, pushFront);
 			childNode = GetNode(childNode.parent);
 		}
 
 		assert(childNode.id == start);
-		retv.push(childNode.id);
+		PushNode(retv, childNode, pushFront);
+	}
 
-		return retv;
+	void PushNode(std::deque<keyType> & retv, Node &childNode, bool pushFront)
+	{
+		if (pushFront)
+		{
+			retv.push_front(childNode.id);
+		}
+		else
+		{
+			retv.push_back(childNode.id);
+		}
 	}
 
 	void CleanupNodes()
