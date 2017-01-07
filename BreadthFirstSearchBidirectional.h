@@ -51,11 +51,8 @@ private:
 			return retv;
 		}
 
-		nodeQueue startQueue;
-		InitStartNode(startQueue, start);
-
-		nodeQueue endQueue;
-		InitStartNode(endQueue, end);
+		nodeQueue startQueue = InitStartNode(start);
+		nodeQueue endQueue = InitStartNode(end);
 
 		while (startQueue.size() > 0 && endQueue.size() > 0)
 		{
@@ -113,12 +110,15 @@ private:
 		return retv;
 	}
 
-	void InitStartNode(std::deque<Node> &queue, keyType &start)
+	std::deque<Node> InitStartNode(keyType &start)
 	{
 		Node& startNode = GetNode(start);
 		startNode.parent = start;
 		startNode.start = start;
+
+		std::deque<Node> queue;
 		queue.push_back(startNode);
+		return queue;
 	}
 
 	const void GetPath(Node childNode, keyType start, std::deque<keyType>& retv, bool pushFront)
